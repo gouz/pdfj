@@ -1,5 +1,7 @@
 # pdfj
 
+[![ci](https://github.com/gouz/pdfj/actions/workflows/ci.yml/badge.svg)](https://github.com/gouz/pdfj/actions/workflows/ci.yml)
+
 Generates PDFs from HTML/CSS, **without a browser**: a Java port of [`pdfrs`](https://github.com/gouz/pdfrs) (itself a Rust port of [`@gouz/pdfjs`](https://github.com/gouz/pdfjs)), shipped as a small HTTP API in a ~80 MB distroless Docker image, with the same API, options, templates and CSS support as pdfrs, and the same output (see [Fidelity](#fidelity)).
 
 - HTML parsing and CSS selectors by [jsoup](https://jsoup.org)
