@@ -6,7 +6,7 @@
 
   <groupId>io.github.gouz</groupId>
   <artifactId>pdfj</artifactId>
-  <version>0.5.1</version>
+  <version>0.0.1</version>
   <name>pdfj</name>
   <description>HTML/CSS to PDF, without a browser: a Java port of pdfrs</description>
 
