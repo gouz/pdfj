@@ -18,6 +18,8 @@ RUN apt-get update -q && apt-get install -yq --no-install-recommends fonts-liber
 FROM gcr.io/distroless/java21-debian12:nonroot
 COPY --from=build /src/target/pdfj.jar /pdfj.jar
 COPY --from=fonts /out/fonts /fonts
-ENV FONTS_DIR=/fonts PORT=3000
+# a bounded heap: less for the GC to scan, faster than letting it grow (see the README's Performance);
+# override it with -e JAVA_TOOL_OPTIONS=-Xmx1g for very large documents
+ENV FONTS_DIR=/fonts PORT=3000 JAVA_TOOL_OPTIONS=-Xmx256m
 EXPOSE 3000
-ENTRYPOINT ["java", "-Djava.awt.headless=true", "-XX:MaxRAMPercentage=75", "-XX:+UseG1GC", "-jar", "/pdfj.jar"]
+ENTRYPOINT ["java", "-Djava.awt.headless=true", "-XX:+UseG1GC", "-jar", "/pdfj.jar"]

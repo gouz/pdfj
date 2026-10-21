@@ -68,7 +68,7 @@ As query parameters or JSON fields:
 | `REMOTE_TIMEOUT_MS` / `REMOTE_MAX_MB` | `5000` / `10` | per download |
 | `REMOTE_ALLOW_PRIVATE` | off | `1`: allow loopback and private addresses (a trusted internal network only) |
 | `MAX_BODY_MB` | `20` | maximum request size |
-| `JAVA_TOOL_OPTIONS` | — | JVM options, e.g. `-Xmx256m` (by default the heap may take 75 % of the container's memory) |
+| `JAVA_TOOL_OPTIONS` | `-Xmx256m` in the image | JVM options: `-Xmx1g` for very large documents or many large images |
 
 ## Templates
 
@@ -156,7 +156,7 @@ gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.5.1
 gcloud run deploy pdfj \
   --image=$REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.5.1 \
   --region=$REGION \
-  --cpu=2 --memory=1Gi \
+  --cpu=2 --memory=512Mi \
   --set-env-vars=WORKERS=2 \
   --concurrency=40 \
   --min-instances=0 --max-instances=10 \
@@ -164,7 +164,7 @@ gcloud run deploy pdfj \
 ```
 
 - **CPU**: rendering is CPU-bound, one render thread per vCPU (`WORKERS` = `--cpu`). Cloud Run scales out by instances, so 1 or 2 vCPUs per instance is enough.
-- **Memory**: the JVM takes up to 75 % of the instance's memory for its heap (`-XX:MaxRAMPercentage=75`); 1 GiB leaves room for large documents and images. Set `JAVA_TOOL_OPTIONS=-Xmx…` to bound it.
+- **Memory**: the image bounds the heap to 256 MB (`JAVA_TOOL_OPTIONS=-Xmx256m`), ~450 MB of memory in all under load: 512 MiB is enough, 1 GiB if you raise the heap for very large documents.
 - **Concurrency**: requests beyond `WORKERS` wait in the instance's queue. A lower `--concurrency` makes Cloud Run add instances sooner (lower latency), a higher one packs more requests per instance (lower cost). ~20 per vCPU is a good start.
 - **Request size**: Cloud Run accepts up to 32 MB per request; `MAX_BODY_MB` (20 by default) is checked first.
 - **Cold start**: the server answers `/health` ~0.5 s after its container starts (JVM and fonts loaded), measured locally; Cloud Run adds the instance start-up on top. The first requests are slower while the JVM compiles its hot paths (a few seconds of traffic); `--min-instances=1` keeps one instance warm, and `--cpu-boost` speeds the start-up.
@@ -312,14 +312,14 @@ Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST t
 
 | Server | Max throughput | p95 at 10 VUs | p95 at 200 VUs | Memory at 200 VUs |
 |---|---|---|---|---|
-| pdfj, 12 threads, `-Xmx256m` | 5,870 PDF/s | 4 ms | 42 ms | 424 MB |
-| pdfj, 12 threads (heap not bounded) | 4,983 PDF/s | 4 ms | 74 ms | ~2 GB |
+| pdfj, 12 threads (the image's 256 MB heap) | 5,870 PDF/s | 4 ms | 42 ms | 424 MB |
+| pdfj, 12 threads, heap not bounded | 4,983 PDF/s | 4 ms | 74 ms | ~2 GB |
 | pdfrs, 12 threads | 6,307 PDF/s | 4 ms | 41 ms | 147 MB |
 | pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 1,148 PDF/s | 12 ms | 223 ms | 850 MB |
 | pdfrs, 1 core | 1,190 PDF/s | 14 ms | 254 ms | 31 MB |
 
 - **Core for core, pdfj renders as many PDFs as pdfrs** (within a few %); on all cores, with a bounded heap, it reaches ~93 % of pdfrs's throughput at the same p95 latency.
-- The JVM takes much more memory: bound the heap (`JAVA_TOOL_OPTIONS=-Xmx256m`, or a container memory limit: the heap is 75 % of it). A bounded heap is faster too (less memory for the GC to scan): 5,870 against 4,983 PDF/s.
+- The JVM takes more memory than the Rust binary. The image bounds the heap to 256 MB (`JAVA_TOOL_OPTIONS=-Xmx256m`), which is faster too (less memory for the GC to scan): 5,870 against 4,983 PDF/s with an unbounded heap.
 - Without HTTP, one thread renders `example` in ~0.5 ms, `flex` in ~0.5 ms, `images` in ~1 ms (`Bench`).
 - What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
 
