@@ -1,0 +1,6 @@
+target
+demo/*.pdf
+bench
+.git
+.github
+*.md
