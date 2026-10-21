@@ -55,6 +55,44 @@ class TemplatesTest {
         }
     }
 
+    /** null is a value of the data, as in pdfrs: only a missing variable or key is undefined */
+    @Test
+    void nullIsDefined() throws TemplateException {
+        String d = "{\"x\": null, \"l\": [], \"o\": {\"t\": null}, \"ops\": [{\"t\": null}]}";
+        assertEquals("", r("{{ x }}", d));
+        assertEquals("-", r("{% if x %}a{% else %}-{% endif %}", d));
+        assertEquals("-", r("{% if l or x %}a{% else %}-{% endif %}", d));
+        assertEquals("-", r("{% if o.t %}a{% else %}-{% endif %}", d));
+        assertEquals("-", r("{% for o in ops %}{% if o.t %}a{% else %}-{% endif %}{% endfor %}", d));
+        assertEquals("—", r("{{ o.t or '—' }}", d));
+        assertEquals("n", r("{% if x is none %}n{% endif %}", d));
+        assertEquals("y", r("{% if x is defined %}y{% endif %}", d));
+        String e = err("{% if l or absent %}a{% endif %}", d);
+        assertTrue(e.contains("undefined") && e.contains("absent"), e);
+        e = err("{% for o in ops %}{{ o.u }}{% endfor %}", d);
+        assertTrue(e.contains("undefined"), e);
+        err("{{ l[3] }}", d);
+        err("{{ absent or '—' }}", d);
+        err("{% if absent %}a{% endif %}", d);
+        assertEquals("—", r("{{ absent | default('—') }}", d));
+        assertEquals("u", r("{% if o.u is undefined %}u{% endif %}", d));
+        assertEquals("-", r("{% if absent is defined and absent %}a{% else %}-{% endif %}", d));
+        assertEquals("ok", r("{% for k, v in o.items() %}ok{% endfor %}", d));
+    }
+
+    @Test
+    void includeOfAnExpression() throws IOException, TemplateException {
+        Path tpl = Files.createTempDirectory("pdfj-inc");
+        Files.createDirectories(tpl.resolve("brands/acme"));
+        Files.writeString(tpl.resolve("brands/acme/legal.txt"), "ACME SAS");
+        JsonNode data = json("{\"brand\": \"acme\"}");
+        assertEquals("<p>ACME SAS</p>", Templates.render(new Source.Inline("<p>{% include \"brands/\" ~ brand ~ \"/legal.txt\" %}</p>"), data, tpl, "fr"));
+        assertEquals("<p>ACME SAS</p>", Templates.render(new Source.Inline("<p>{% include 'brands/' ~ brand ~ '/legal.txt' %}</p>"), data, tpl, "fr"));
+        String e = assertThrows(TemplateException.class,
+            () -> Templates.render(new Source.Inline("{% include \"brands/\" ~ brand ~ \"/../../../etc/passwd\" %}"), data, tpl, "fr")).getMessage();
+        assertTrue(e.contains("not found"), e);
+    }
+
     @Test
     void bounded() {
         String e = err("{% for i in range(100000) %}{% for j in range(100000) %}{% endfor %}{% endfor %}", "{}");

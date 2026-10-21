@@ -94,7 +94,8 @@ public final class Templates {
         Path r = root;
         return ENVS.computeIfAbsent(String.valueOf(root), k -> {
             JinjavaConfig config = JinjavaConfig.newBuilder()
-                .withFailOnUnknownTokens(true)
+                .withInterperterFactory(Undefined.INTERPRETERS)
+                .withElResolver(Undefined.PROPERTIES)
                 .withMaxRenderDepth(100)
                 .withMaxMacroRecursionDepth(100)
                 .withEnableRecursiveMacroCalls(true)
@@ -104,6 +105,10 @@ public final class Templates {
             Jinjava j = new Jinjava(config);
             j.setResourceLocator(new DirLocator(r));
             Context g = j.getGlobalContext();
+            g.registerTag(new Include());
+            g.registerExpTest(Undefined.test("defined", true));
+            g.registerExpTest(Undefined.test("undefined", false));
+            g.registerFilter(Undefined.DEFAULT);
             g.registerFilter(new Money());
             g.registerFilter(new NumberFilter());
             g.registerFilter(new DateFilter());
@@ -173,7 +178,8 @@ public final class Templates {
         try {
             Context context = new Context(env.getGlobalContext(), ctx);
             context.setAutoEscape(true);
-            JinjavaInterpreter interpreter = new JinjavaInterpreter(env, context, env.getGlobalConfig());
+            context.setDynamicVariableResolver(Undefined.variables(context));
+            JinjavaInterpreter interpreter = env.getGlobalConfig().getInterpreterFactory().newInstance(env, context, env.getGlobalConfig());
             JinjavaInterpreter.pushCurrent(interpreter);
             try {
                 String out = interpreter.render(text);
