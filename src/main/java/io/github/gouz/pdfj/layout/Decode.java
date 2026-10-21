@@ -79,6 +79,13 @@ final class Decode {
         public void displayMessage(String message) {}
     }
 
+    /**
+     * The address an SVG is parsed at. Its own references ({@code clip-path="url(#a)"}, {@code <use href="#r">})
+     * resolve against it: under a {@code data:} URL Batik loses the fragment and drops the drawing. Nothing
+     * is ever loaded from it, the agent refuses every URL but {@code data:}.
+     */
+    private static final String SVG_URL = "http://pdfj.invalid/image.svg";
+
     /** An SVG document (markup), drawn by Batik; its natural size from width / height / viewBox. */
     static Decoded svg(String markup) {
         if (markup.contains("<!ENTITY")) return null;
@@ -90,7 +97,7 @@ final class Decode {
         try {
             SAXSVGDocumentFactory f = new SAXSVGDocumentFactory(XMLResourceDescriptor.getXMLParserClassName());
             f.setValidating(false);
-            Document doc = f.createDocument("data:image/svg+xml,x", new StringReader(m));
+            Document doc = f.createDocument(SVG_URL, new StringReader(m));
             Agent ua = new Agent();
             BridgeContext ctx = new BridgeContext(ua, new DocumentLoader(ua));
             ctx.setDynamicState(BridgeContext.STATIC);
