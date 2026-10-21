@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" font-family="-apple-system, Segoe UI, Helvetica, sans-serif" font-size="12">
+<style>
+  .bg{fill:#fcfcfb} .ink{fill:#0b0b0b} .muted{fill:#898781} .grid{stroke:#e1e0d9} .axis{stroke:#c3c2b7}
+  .s1{stroke:#2a78d6;fill:#2a78d6} .s2{stroke:#eb6834;fill:#eb6834} .s3{stroke:#1baf7a;fill:#1baf7a} .s4{stroke:#eda100;fill:#eda100} .s5{stroke:#8a5cd6;fill:#8a5cd6}
+  @media (prefers-color-scheme: dark){
+    .bg{fill:#1a1a19} .ink{fill:#f0efec} .grid{stroke:#2c2c2a} .axis{stroke:#383835}
+    .s1{stroke:#3987e5;fill:#3987e5} .s2{stroke:#d95926;fill:#d95926} .s3{stroke:#199e70;fill:#199e70} .s4{stroke:#c98500;fill:#c98500} .s5{stroke:#9b6fe3;fill:#9b6fe3}
+  }
+</style>
+<rect class="bg" width="800" height="400" rx="8"/>
+<text class="ink" x="60" y="22" font-size="14" font-weight="600">p95 latency (ms) by number of concurrent users</text>
+<g transform="translate(60,42)"><line class="s1" x1="0" x2="14" y1="0" y2="0" stroke-width="2"/><circle class="s1" cx="7" r="4"/><text class="muted" x="20" y="4">pdfj, all cores</text></g><g transform="translate(250,42)"><line class="s2" x1="0" x2="14" y1="0" y2="0" stroke-width="2"/><circle class="s2" cx="7" r="4"/><text class="muted" x="20" y="4">pdfrs, all cores</text></g><g transform="translate(440,42)"><line class="s3" x1="0" x2="14" y1="0" y2="0" stroke-width="2"/><circle class="s3" cx="7" r="4"/><text class="muted" x="20" y="4">pdfj, 1 core</text></g><g transform="translate(60,60)"><line class="s4" x1="0" x2="14" y1="0" y2="0" stroke-width="2"/><circle class="s4" cx="7" r="4"/><text class="muted" x="20" y="4">pdfrs, 1 core</text></g><g transform="translate(250,60)"><line class="s5" x1="0" x2="14" y1="0" y2="0" stroke-width="2"/><circle class="s5" cx="7" r="4"/><text class="muted" x="20" y="4">pdfj, all cores, -Xmx256m</text></g>
+<line class="axis" x1="60" x2="550" y1="352" y2="352"/><text class="muted" x="52" y="356" text-anchor="end">1</text>
+<line class="grid" x1="60" x2="550" y1="308.10484456579104" y2="308.10484456579104"/><text class="muted" x="52" y="312.10484456579104" text-anchor="end">3</text>
+<line class="grid" x1="60" x2="550" y1="260" y2="260"/><text class="muted" x="52" y="264" text-anchor="end">10</text>
+<line class="grid" x1="60" x2="550" y1="216.10484456579107" y2="216.10484456579107"/><text class="muted" x="52" y="220.10484456579107" text-anchor="end">30</text>
+<line class="grid" x1="60" x2="550" y1="168" y2="168"/><text class="muted" x="52" y="172" text-anchor="end">100</text>
+<line class="grid" x1="60" x2="550" y1="124.10484456579104" y2="124.10484456579104"/><text class="muted" x="52" y="128.10484456579104" text-anchor="end">300</text>
+<line class="grid" x1="60" x2="550" y1="76" y2="76"/><text class="muted" x="52" y="80" text-anchor="end">1,000</text>
+<text class="muted" x="60" y="370" text-anchor="middle">1</text><text class="muted" x="223.33333333333334" y="370" text-anchor="middle">10</text><text class="muted" x="386.6666666666667" y="370" text-anchor="middle">50</text><text class="muted" x="550" y="370" text-anchor="middle">200</text>
+<text class="muted" x="305" y="392" text-anchor="middle">k6 virtual users (VUs) — log scale</text>
+<polyline class="s1" style="fill:none" stroke-width="2" stroke-linejoin="round" points="60,324.3052403989137 223.33333333333334,296.61048079782745 386.6666666666667,236.51492953049583 550,180.0306817847502"/>
+<circle class="s1" cx="60" cy="324.3052403989137" r="4"><title>pdfj, all cores, 1 VUs: 2 ms</title></circle><circle class="s1" cx="223.33333333333334" cy="296.61048079782745" r="4"><title>pdfj, all cores, 10 VUs: 4 ms</title></circle><circle class="s1" cx="386.6666666666667" cy="236.51492953049583" r="4"><title>pdfj, all cores, 50 VUs: 18 ms</title></circle><circle class="s1" cx="550" cy="180.0306817847502" r="4"><title>pdfj, all cores, 200 VUs: 74 ms</title></circle>
+<polyline class="s2" style="fill:none" stroke-width="2" stroke-linejoin="round" points="60,324.3052403989137 223.33333333333334,296.61048079782745 386.6666666666667,246.55622071760212 550,203.62388518178435"/>
+<circle class="s2" cx="60" cy="324.3052403989137" r="4"><title>pdfrs, all cores, 1 VUs: 2 ms</title></circle><circle class="s2" cx="223.33333333333334" cy="296.61048079782745" r="4"><title>pdfrs, all cores, 10 VUs: 4 ms</title></circle><circle class="s2" cx="386.6666666666667" cy="246.55622071760212" r="4"><title>pdfrs, all cores, 50 VUs: 14 ms</title></circle><circle class="s2" cx="550" cy="203.62388518178435" r="4"><title>pdfrs, all cores, 200 VUs: 41 ms</title></circle>
+<polyline class="s3" style="fill:none" stroke-width="2" stroke-linejoin="round" points="60,352 223.33333333333334,252.71532536361852 386.6666666666667,177.41830760127937 550,135.95595259956923"/>
+<circle class="s3" cx="60" cy="352" r="4"><title>pdfj, 1 core, 1 VUs: 1 ms</title></circle><circle class="s3" cx="223.33333333333334" cy="252.71532536361852" r="4"><title>pdfj, 1 core, 10 VUs: 12 ms</title></circle><circle class="s3" cx="386.6666666666667" cy="177.41830760127937" r="4"><title>pdfj, 1 core, 50 VUs: 79 ms</title></circle><circle class="s3" cx="550" cy="135.95595259956923" r="4"><title>pdfj, 1 core, 200 VUs: 223 ms</title></circle>
+<polyline class="s4" style="fill:none" stroke-width="2" stroke-linejoin="round" points="60,324.3052403989137 223.33333333333334,246.55622071760212 386.6666666666667,181.68423191784507 550,130.7552980709657"/>
+<circle class="s4" cx="60" cy="324.3052403989137" r="4"><title>pdfrs, 1 core, 1 VUs: 2 ms</title></circle><circle class="s4" cx="223.33333333333334" cy="246.55622071760212" r="4"><title>pdfrs, 1 core, 10 VUs: 14 ms</title></circle><circle class="s4" cx="386.6666666666667" cy="181.68423191784507" r="4"><title>pdfrs, 1 core, 50 VUs: 71 ms</title></circle><circle class="s4" cx="550" cy="130.7552980709657" r="4"><title>pdfrs, 1 core, 200 VUs: 254 ms</title></circle>
+<polyline class="s5" style="fill:none" stroke-width="2" stroke-linejoin="round" points="60,352 223.33333333333334,296.61048079782745 386.6666666666667,246.55622071760212 550,202.66106528339316"/>
+<circle class="s5" cx="60" cy="352" r="4"><title>pdfj, all cores, -Xmx256m, 1 VUs: 1 ms</title></circle><circle class="s5" cx="223.33333333333334" cy="296.61048079782745" r="4"><title>pdfj, all cores, -Xmx256m, 10 VUs: 4 ms</title></circle><circle class="s5" cx="386.6666666666667" cy="246.55622071760212" r="4"><title>pdfj, all cores, -Xmx256m, 50 VUs: 14 ms</title></circle><circle class="s5" cx="550" cy="202.66106528339316" r="4"><title>pdfj, all cores, -Xmx256m, 200 VUs: 42 ms</title></circle>
+<text class="ink" x="560" y="134.7552980709657">pdfrs, 1 core · 254 ms</text>
+<text class="ink" x="560" y="149.7552980709657">pdfj, 1 core · 223 ms</text>
+<text class="ink" x="560" y="184.0306817847502">pdfj, all cores · 74 ms</text>
+<text class="ink" x="560" y="206.66106528339316">pdfj, all cores, -Xmx256m · 42 ms</text>
+<text class="ink" x="560" y="221.66106528339316">pdfrs, all cores · 41 ms</text>
+</svg>

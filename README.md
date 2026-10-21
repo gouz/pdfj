@@ -1,6 +1,6 @@
 # pdfj
 
-Generates PDFs from HTML/CSS, **without a browser**: a Java port of [`pdfrs`](https://github.com/gouz/pdfrs) (itself a Rust port of [`@gouz/pdfjs`](https://github.com/gouz/pdfjs)), shipped as a small HTTP API in a Docker image, with the same API, options, templates and CSS support as pdfrs, and the same output (see [Fidelity](#fidelity)).
+Generates PDFs from HTML/CSS, **without a browser**: a Java port of [`pdfrs`](https://github.com/gouz/pdfrs) (itself a Rust port of [`@gouz/pdfjs`](https://github.com/gouz/pdfjs)), shipped as a small HTTP API in a ~80 MB distroless Docker image, with the same API, options, templates and CSS support as pdfrs, and the same output (see [Fidelity](#fidelity)).
 
 - HTML parsing and CSS selectors by [jsoup](https://jsoup.org)
 - Layout by its own engine, in plain Java: block (with margin collapsing), flexbox, **grid**, float, absolute positioning, tables as grids
@@ -199,7 +199,7 @@ The same jar converts a file:
 ```bash
 java -jar target/pdfj.jar invoice.html invoice.pdf --size A5 --footer '<p>{page} / {pages}</p>'
 # or inside the image
-docker run --rm -v "$PWD":/w -w /w pdfj invoice.html invoice.pdf
+docker run --rm -v "$PWD":/w -w /w pdfj invoice.html invoice.pdf   # the image runs the jar
 ```
 
 Options: `--size`, `--landscape`, `--margin`, `--font`, `--font-size`, `--header`, `--footer`, `--title`, `--remote`, `--data data.json` (the input is a [template](#templates)), `--locale`. Local images, stylesheets and fonts are allowed from the HTML file's folder.
@@ -304,23 +304,30 @@ Differences:
 
 Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (12 CPUs, k6 included), pdfj and pdfrs 0.5.1 in their images, 10 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
 
+![Throughput by number of concurrent users: pdfrs and pdfj with a 256 MB heap climb to ~6,000 PDF/s on all cores, ~1,100 PDF/s each on one core](bench/chart.svg)
+
+![Peak memory: ~150 MB for pdfrs on 12 cores, ~400 MB for pdfj with a 256 MB heap, ~2 GB with an unbounded heap](bench/memory.svg)
+
+![p95 latency: about the same for pdfj with a 256 MB heap and pdfrs](bench/latency.svg)
+
 | Server | Max throughput | p95 at 10 VUs | p95 at 200 VUs | Memory at 200 VUs |
 |---|---|---|---|---|
-| pdfj, 12 threads | 4,983 PDF/s | 4 ms | 74 ms | ~2 GB (heap not bounded) |
-| pdfj, 12 threads, `-Xmx256m` | 5,227 PDF/s | — | 57 ms | ~370 MB |
+| pdfj, 12 threads, `-Xmx256m` | 5,870 PDF/s | 4 ms | 42 ms | 424 MB |
+| pdfj, 12 threads (heap not bounded) | 4,983 PDF/s | 4 ms | 74 ms | ~2 GB |
 | pdfrs, 12 threads | 6,307 PDF/s | 4 ms | 41 ms | 147 MB |
 | pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 1,148 PDF/s | 12 ms | 223 ms | 850 MB |
 | pdfrs, 1 core | 1,190 PDF/s | 14 ms | 254 ms | 31 MB |
 
-- **Core for core, pdfj renders as many PDFs as pdfrs** (within a few %); on all cores it reaches ~80 % of pdfrs's throughput.
-- The JVM takes much more memory: bound the heap (`JAVA_TOOL_OPTIONS=-Xmx256m`, or a container memory limit: the heap is 75 % of it). A bounded heap is even a little faster here (less memory to scan).
+- **Core for core, pdfj renders as many PDFs as pdfrs** (within a few %); on all cores, with a bounded heap, it reaches ~93 % of pdfrs's throughput at the same p95 latency.
+- The JVM takes much more memory: bound the heap (`JAVA_TOOL_OPTIONS=-Xmx256m`, or a container memory limit: the heap is 75 % of it). A bounded heap is faster too (less memory for the GC to scan): 5,870 against 4,983 PDF/s.
 - Without HTTP, one thread renders `example` in ~0.5 ms, `flex` in ~0.5 ms, `images` in ~1 ms (`Bench`).
 - What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
 
 To reproduce (Docker is enough):
 
 ```bash
-PDFRS_IMAGE=ghcr.io/gouz/pdfrs:0.5.1 sh bench/sweep.sh > bench/results.csv   # configs j, j1, rs, rs1
+PDFRS_IMAGE=ghcr.io/gouz/pdfrs:0.5.1 sh bench/sweep.sh > bench/results.csv   # configs j, jx, j1, rs, rs1
+node bench/chart.ts                                                            # → bench/chart.svg, memory.svg, latency.svg
 ```
 
 ## Development
