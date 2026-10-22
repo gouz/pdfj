@@ -2,7 +2,7 @@
 # Capacity sweep, pdfj vs pdfrs, everything in Docker on the same machine (k6 included):
 # for each config, hold VUS concurrent users for DURATION, print req/s, p95 and peak memory of the server container.
 # Usage: PDFRS_DIR=../pdfrs sh bench/sweep.sh [config...]   (or PDFRS_IMAGE=ghcr.io/gouz/pdfrs:0.5.1: no pdfrs build)
-#   configs: j (pdfj, all cores, heap not bounded), jx (pdfj, all cores, 256 MB heap: the image's default), j1 (pdfj, 1 core), rs (pdfrs, all cores), rs1 (pdfrs, 1 core)
+#   configs: j (pdfj, all cores, the image's 2 GB heap), ju (pdfj, all cores, heap not bounded), jx (pdfj, all cores, 256 MB heap), j1 (pdfj, 1 core), rs (pdfrs, all cores), rs1 (pdfrs, 1 core)
 cd "$(dirname "$0")/.." || exit 1
 PDFRS_DIR=$(cd "${PDFRS_DIR:-../pdfrs}" 2>/dev/null && pwd)
 NET=pdfbench
@@ -16,7 +16,8 @@ case " ${*:-j j1 rs rs1} " in *" rs"*) [ -n "$PDFRS_IMAGE" ] || docker build -q 
 start() { # name
   docker rm -f srv >/dev/null 2>&1
   case $1 in
-    j)   docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images -e JAVA_TOOL_OPTIONS= pdfj ;;
+    j)   docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images pdfj ;;
+    ju)  docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images -e JAVA_TOOL_OPTIONS= pdfj ;;
     jx)  docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images -e JAVA_TOOL_OPTIONS=-Xmx256m pdfj ;;
     j1)  docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images -e WORKERS=1 --cpus 1 pdfj ;;
     rs)  docker run -d --name srv --network $NET -v "$PWD/demo":/images:ro -e IMAGES_DIR=/images "$RS" ;;

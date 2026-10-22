@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const dir = new URL('.', import.meta.url).pathname;
 const NAMES: Record<string, string> = {
-  j: 'pdfj, all cores', jx: 'pdfj, all cores, -Xmx256m', rs: 'pdfrs, all cores', j1: 'pdfj, 1 core', rs1: 'pdfrs, 1 core',
+  j: 'pdfj, all cores, -Xmx2g', ju: 'pdfj, all cores, heap not bounded', jx: 'pdfj, all cores, -Xmx256m', rs: 'pdfrs, all cores', j1: 'pdfj, 1 core', rs1: 'pdfrs, 1 core',
 };
 type Row = { label: string; vus: number; reqS: number; p95: number; mem: number };
 const rows: Row[] = readFileSync(dir + 'results.csv', 'utf8').trim().split('\n').slice(1).map((l) => l.split(','))
