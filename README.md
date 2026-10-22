@@ -304,24 +304,24 @@ Differences:
 
 ## Performance
 
-Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (12 CPUs, k6 included), pdfj and pdfrs 0.5.1 in their images, 10 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
+Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (Docker Desktop 29.9 on an Apple M1 Pro, 8 CPUs and 8 GB for Docker, k6 included), pdfj and pdfrs 0.5.1 in their images, 10 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
 
-![Throughput by number of concurrent users: pdfrs and pdfj with a 256 MB heap climb to ~6,000 PDF/s on all cores, ~1,100 PDF/s each on one core](bench/chart.svg)
+![Throughput by number of concurrent users: pdfj and pdfrs climb to ~2,200 PDF/s on all cores, ~740 and ~640 PDF/s on one core](bench/chart.svg)
 
-![Peak memory: ~150 MB for pdfrs on 12 cores, ~400 MB for pdfj with a 256 MB heap, ~2 GB with an unbounded heap](bench/memory.svg)
+![Peak memory: ~140 MB for pdfrs on 8 cores, ~390 MB for pdfj with a 256 MB heap, ~660 MB with an unbounded heap](bench/memory.svg)
 
-![p95 latency: about the same for pdfj with a 256 MB heap and pdfrs](bench/latency.svg)
+![p95 latency: about the same for pdfj and pdfrs on all cores, lower for pdfj on one core](bench/latency.svg)
 
 | Server | Max throughput | p95 at 10 VUs | p95 at 200 VUs | Memory at 200 VUs |
 |---|---|---|---|---|
-| pdfj, 12 threads (the image's 256 MB heap) | 5,870 PDF/s | 4 ms | 42 ms | 424 MB |
-| pdfj, 12 threads, heap not bounded | 4,983 PDF/s | 4 ms | 74 ms | ~2 GB |
-| pdfrs, 12 threads | 6,307 PDF/s | 4 ms | 41 ms | 147 MB |
-| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 1,148 PDF/s | 12 ms | 223 ms | 850 MB |
-| pdfrs, 1 core | 1,190 PDF/s | 14 ms | 254 ms | 31 MB |
+| pdfj, 8 threads (the image's 256 MB heap) | 2,219 PDF/s | 10 ms | 117 ms | 386 MB |
+| pdfj, 8 threads, heap not bounded | 2,211 PDF/s | 11 ms | 116 ms | 662 MB |
+| pdfrs, 8 threads | 2,181 PDF/s | 10 ms | 127 ms | 142 MB |
+| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 737 PDF/s | 20 ms | 349 ms | 268 MB |
+| pdfrs, 1 core | 627 PDF/s | 25 ms | 455 ms | 40 MB |
 
-- **Core for core, pdfj renders as many PDFs as pdfrs** (within a few %); on all cores, with a bounded heap, it reaches ~93 % of pdfrs's throughput at the same p95 latency.
-- The JVM takes more memory than the Rust binary. The image bounds the heap to 256 MB (`JAVA_TOOL_OPTIONS=-Xmx256m`), which is faster too (less memory for the GC to scan): 5,870 against 4,983 PDF/s with an unbounded heap.
+- **pdfj renders as many PDFs as pdfrs on all cores** (2,219 against 2,181 PDF/s, same p95), and ~15 % more on one core (737 against 627 PDF/s) in this run. On this machine k6 shares the 8 cores with the servers, which caps both on all cores.
+- The JVM takes more memory than the Rust binary: ~3× on all cores, ~7× on one core. The image bounds the heap to 256 MB (`JAVA_TOOL_OPTIONS=-Xmx256m`): same throughput here as an unbounded heap, for ~40 % less memory.
 - Without HTTP, one thread renders `example` in ~0.5 ms, `flex` in ~0.5 ms, `images` in ~1 ms (`Bench`).
 - What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
 
