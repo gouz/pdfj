@@ -529,7 +529,8 @@ class RenderTest {
         List<Word> w = words(pdf("<p><span style=\"float:left;width:100pt;height:60pt;background:#ccc\"></span>" + t + "</p><p style=\"float:right\">x</p>"));
         Word first = word(w, "w0"), last = word(w, "w119");
         assertTrue(Math.abs(first.x() - 140) < 1, "beside the float: " + first.x());
-        assertTrue(last.y() > first.y() + 60 && Math.abs(last.x() - 40) < 200, "below the float: " + last);
+        // where the last word falls on its line depends on the fonts' widths: only inside the content box (A4, 40pt margins)
+        assertTrue(last.y() > first.y() + 60 && last.x() > 39 && last.xMax() < 595.28 - 39, "below the float: " + last);
         // the first word of a line below the float starts at the content edge again
         assertTrue(w.stream().anyMatch(x -> x.text().startsWith("w") && x.y() > first.y() + 62 && Math.abs(x.x() - 40) < 1), w.toString());
     }
