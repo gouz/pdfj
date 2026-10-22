@@ -141,22 +141,22 @@ A stateless HTTP container: a good fit for [Cloud Run](https://cloud.google.com/
 PROJECT=my-project REGION=europe-west1
 gcloud artifacts repositories create pdfj --repository-format=docker --location=$REGION
 gcloud auth configure-docker $REGION-docker.pkg.dev
-docker pull --platform linux/amd64 ghcr.io/gouz/pdfj:0.0.3
-docker tag ghcr.io/gouz/pdfj:0.0.3 $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.3
-docker push $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.3
+docker pull --platform linux/amd64 ghcr.io/gouz/pdfj:0.0.4
+docker tag ghcr.io/gouz/pdfj:0.0.4 $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.4
+docker push $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.4
 ```
 
 or build it from the sources with Cloud Build (it uses the `Dockerfile`):
 
 ```bash
-gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.3
+gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.4
 ```
 
 **2. Deploy.**
 
 ```bash
 gcloud run deploy pdfj \
-  --image=$REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.3 \
+  --image=$REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.4 \
   --region=$REGION \
   --cpu=2 --memory=1Gi \
   --set-env-vars=WORKERS=2 \
