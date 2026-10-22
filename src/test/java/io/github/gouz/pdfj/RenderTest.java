@@ -67,6 +67,16 @@ class RenderTest {
     }
 
     @Test
+    void subsetFontsAreReusedAcrossDocuments() {
+        // the second "hello" takes its subset font from the cache: the same PDF but for its /ID
+        byte[] a = pdf("<p>hello</p>"), b = pdf("<p>world</p>"), c = pdf("<p>hello</p>");
+        String noId = "/ID \\[<[0-9A-F]+> <[0-9A-F]+>\\]";
+        assertEquals(new String(a, StandardCharsets.ISO_8859_1).replaceAll(noId, ""), new String(c, StandardCharsets.ISO_8859_1).replaceAll(noId, ""));
+        assertEquals("hello", text(c).trim());
+        assertEquals("world", text(b).trim());
+    }
+
+    @Test
     void longContentPaginates() {
         StringBuilder rows = new StringBuilder();
         for (int i = 0; i < 200; i++) rows.append("<tr><td>row ").append(i).append("</td><td>").append(i).append("</td></tr>");

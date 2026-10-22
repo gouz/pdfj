@@ -6,6 +6,7 @@ import io.github.gouz.pdfj.style.Rgba;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
@@ -18,11 +19,9 @@ import org.apache.pdfbox.pdmodel.graphics.shading.PDShading;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -53,7 +52,18 @@ public final class Canvas {
 
     final Shared shared;
     final PDResources resources = new PDResources();
-    private final ByteArrayOutputStream out = new ByteArrayOutputStream(8192);
+    private final Buffer out = new Buffer();
+
+    /** a byte buffer whose bytes are read in place */
+    private static final class Buffer extends ByteArrayOutputStream {
+        Buffer() {
+            super(8192);
+        }
+
+        byte[] buffer() {
+            return buf;
+        }
+    }
     private final StringBuilder sb = new StringBuilder(256);
 
     Canvas(Shared shared) {
@@ -64,15 +74,18 @@ public final class Canvas {
 
     private void flushSb() {
         if (sb.isEmpty()) return;
-        byte[] b = sb.toString().getBytes(StandardCharsets.ISO_8859_1);
-        out.write(b, 0, b.length);
+        // Latin-1, written as it is: no String and byte[] copies of the buffer
+        for (int i = 0, n = sb.length(); i < n; i++) out.write(sb.charAt(i));
         sb.setLength(0);
     }
 
-    byte[] bytes() {
+    /** the content stream drawn, Flate-compressed into {@code doc} */
+    COSStream contents(PDDocument doc) throws IOException {
         flushSb();
-        return out.toByteArray();
+        return Flate.compress(doc, out.buffer(), out.size());
     }
+
+    private static final int[] POW10 = {1, 10, 100, 1000};
 
     private Canvas num(double v) {
         if (Double.isNaN(v) || Double.isInfinite(v)) v = 0;
@@ -86,10 +99,13 @@ public final class Canvas {
                 r = -r;
             }
             sb.append(r / 10000).append('.');
-            String frac = String.format("%04d", r % 10000);
-            int end = frac.length();
-            while (end > 0 && frac.charAt(end - 1) == '0') end--;
-            sb.append(frac, 0, end);
+            // the 4 decimals, trailing zeros dropped
+            int frac = (int) (r % 10000), digits = 4;
+            while (frac % 10 == 0) {
+                frac /= 10;
+                digits--;
+            }
+            for (int d = digits - 1; d >= 0; d--) sb.append((char) ('0' + frac / POW10[d] % 10));
         }
         sb.append(' ');
         return this;
@@ -350,8 +366,7 @@ public final class Canvas {
 
     /** this canvas as a form XObject (y-down coordinates of the canvas it is drawn on) */
     PDFormXObject toForm(boolean transparencyGroup) throws IOException {
-        PDStream stream = new PDStream(shared.doc, new ByteArrayInputStream(bytes()), COSName.FLATE_DECODE);
-        PDFormXObject form = new PDFormXObject(stream);
+        PDFormXObject form = new PDFormXObject(new PDStream(contents(shared.doc)));
         form.setResources(resources);
         form.setBBox(new PDRectangle(-100000, -100000, 200000, 200000));
         if (transparencyGroup) {

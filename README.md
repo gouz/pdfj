@@ -70,7 +70,7 @@ As query parameters or JSON fields:
 | `REMOTE_TIMEOUT_MS` / `REMOTE_MAX_MB` | `5000` / `10` | per download |
 | `REMOTE_ALLOW_PRIVATE` | off | `1`: allow loopback and private addresses (a trusted internal network only) |
 | `MAX_BODY_MB` | `20` | maximum request size |
-| `JAVA_TOOL_OPTIONS` | `-Xmx2g` in the image | JVM options: `-Xmx256m` for a smaller footprint |
+| `JAVA_TOOL_OPTIONS` | — | JVM options, e.g. `-Xmx256m` to bound the heap (by default it may take 1/4 of the container's memory) |
 
 ## Templates
 
@@ -158,7 +158,7 @@ gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.2
 gcloud run deploy pdfj \
   --image=$REGION-docker.pkg.dev/$PROJECT/pdfj/pdfj:0.0.2 \
   --region=$REGION \
-  --cpu=2 --memory=3Gi \
+  --cpu=2 --memory=1Gi \
   --set-env-vars=WORKERS=2 \
   --concurrency=40 \
   --min-instances=0 --max-instances=10 \
@@ -166,7 +166,7 @@ gcloud run deploy pdfj \
 ```
 
 - **CPU**: rendering is CPU-bound, one render thread per vCPU (`WORKERS` = `--cpu`). Cloud Run scales out by instances, so 1 or 2 vCPUs per instance is enough.
-- **Memory**: the image bounds the heap to 2 GB (`JAVA_TOOL_OPTIONS=-Xmx2g`); 3 GiB leaves room for the JVM's other memory. With `-Xmx256m`, ~500 MB in all under load: 1 GiB is then enough.
+- **Memory**: the heap is not bounded by the image: the JVM gives it up to 1/4 of the instance's memory (256 MB of 1 GiB), and keeps it small under load (`-XX:GCTimeRatio=2`). 1 GiB is enough for ordinary documents; raise `--memory` for very large documents or many large images.
 - **Concurrency**: requests beyond `WORKERS` wait in the instance's queue. A lower `--concurrency` makes Cloud Run add instances sooner (lower latency), a higher one packs more requests per instance (lower cost). ~20 per vCPU is a good start.
 - **Request size**: Cloud Run accepts up to 32 MB per request; `MAX_BODY_MB` (20 by default) is checked first.
 - **Cold start**: the server answers `/health` ~0.5 s after its container starts (JVM and fonts loaded), measured locally; Cloud Run adds the instance start-up on top. The first requests are slower while the JVM compiles its hot paths (a few seconds of traffic); `--min-instances=1` keeps one instance warm, and `--cpu-boost` speeds the start-up.
@@ -306,25 +306,24 @@ Differences:
 
 Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (12 CPUs, k6 included), pdfj and pdfrs 0.5.1 in their images, 15 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
 
-![Throughput by number of concurrent users: pdfj and pdfrs climb to ~6,200 and ~6,600 PDF/s on all cores, ~1,250 and ~1,150 PDF/s on one core](bench/chart.svg)
+![Throughput by number of concurrent users: pdfj climbs to ~9,000 PDF/s on all cores and ~2,350 on one core, pdfrs to ~6,600 and ~1,200](bench/chart.svg)
 
-![Peak memory: ~100 MB for pdfrs on 12 cores, ~500 MB for pdfj with a 256 MB heap, ~900 MB with the image's 2 GB heap, ~1.2 GB with an unbounded heap](bench/memory.svg)
+![Peak memory: ~150 MB for pdfrs on 12 cores, ~450 MB for pdfj with a 256 MB heap, ~700 MB with its heap not bounded (the image's default)](bench/memory.svg)
 
-![p95 latency: about the same for pdfj and pdfrs](bench/latency.svg)
+![p95 latency: lower for pdfj than for pdfrs, on all cores and on one core](bench/latency.svg)
 
 | Server | Max throughput | p95 at 10 VUs | p95 at 200 VUs | Memory at 200 VUs |
 |---|---|---|---|---|
-| pdfj, 12 threads (the image's 2 GB heap) | 6,252 PDF/s | 4 ms | 40 ms | 889 MB |
-| pdfj, 12 threads, heap not bounded | 6,175 PDF/s | 4 ms | 43 ms | 1,173 MB |
-| pdfj, 12 threads, `-Xmx256m` | 5,684 PDF/s | 4 ms | 45 ms | 495 MB |
-| pdfrs, 12 threads | 6,612 PDF/s | 4 ms | 38 ms | 95 MB |
-| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 1,264 PDF/s | 12 ms | 214 ms | 398 MB |
-| pdfrs, 1 core | 1,164 PDF/s | 14 ms | 253 ms | 31 MB |
+| pdfj, 12 threads (heap not bounded: the image's default) | 8,984 PDF/s | 3 ms | 42 ms | 692 MB |
+| pdfj, 12 threads, `-Xmx256m` | 9,043 PDF/s | 3 ms | 33 ms | 458 MB |
+| pdfrs, 12 threads | 6,642 PDF/s | 4 ms | 39 ms | 148 MB |
+| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 2,361 PDF/s | 6 ms | 119 ms | 439 MB |
+| pdfrs, 1 core | 1,224 PDF/s | 13 ms | 247 ms | 33 MB |
 
-- **pdfj renders about as many PDFs as pdfrs**: ~95 % of its throughput on all cores (6,252 against 6,612 PDF/s, about the same p95), ~9 % more on one core (1,264 against 1,164 PDF/s) in this run.
-- The JVM takes more memory than the Rust binary. The image bounds the heap to 2 GB (`JAVA_TOOL_OPTIONS=-Xmx2g`): ~900 MB under this load. A 256 MB heap (`-Xmx256m`) halves the memory for ~9 % less throughput (5,684 against 6,252 PDF/s).
+- **pdfj renders more PDFs than pdfrs** on this scenario: ~35 % more on all cores (8,984 against 6,642 PDF/s), ~2× on one core (2,361 against 1,224 PDF/s), at a lower p95. The three documents are rendered again and again, so the subset fonts come from the cache (see below).
+- The JVM takes more memory than the Rust binary. The heap live after a collection is only ~35 MB: the rest is room G1 takes to collect less often. The image does not bound the heap, and lets G1 spend more time collecting rather than grow it (`-XX:GCTimeRatio=2`, 12 by default): ~700 MB under this load instead of ~1.2 GB, for the same throughput. A 256 MB heap (`JAVA_TOOL_OPTIONS=-Xmx256m`) takes ~450 MB, as fast here.
 - Without HTTP, one thread renders `example` in ~0.5 ms, `flex` in ~0.5 ms, `images` in ~1 ms (`Bench`).
-- What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
+- What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), a subset font already made for the same glyphs is reused (compressed, up to 16 MB of them), content streams are compressed straight from the canvas's buffer, PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
 
 To reproduce (Docker is enough):
 

@@ -150,16 +150,20 @@ public final class TextLeaf {
 
     /** sizes of the inline boxes: [0] margin-box width, [1] height, [2] baseline (NaN: bottom edge) */
     private static double[][] boxSizes(Paragraph p, double width, boolean perform) {
-        double[][] out = new double[3][p.n];
+        double[][] out = null;
         for (int i = 0; i < p.n; i++) {
             if (p.kind[i] != Paragraph.BOX) continue;
+            if (out == null) out = new double[3][p.n];
             double[] s = Layout.inlineSize((Box) p.boxes[i], width, perform);
             out[0][i] = s[0];
             out[1][i] = s[1];
             out[2][i] = s[2];
         }
-        return out;
+        return out == null ? NO_BOXES : out;
     }
+
+    /** the sizes of a paragraph without inline boxes: only read at the boxes' indexes */
+    private static final double[][] NO_BOXES = new double[3][0];
 
     private static int firstCount(Paragraph p, TextLayout.Lines lines) {
         if (lines.lines().isEmpty()) return 0;

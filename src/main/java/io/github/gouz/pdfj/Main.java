@@ -9,7 +9,6 @@ import io.github.gouz.pdfj.net.ImagePolicy;
 import io.github.gouz.pdfj.net.Remote;
 import io.github.gouz.pdfj.template.Templates;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -287,19 +286,12 @@ public final class Main {
             }
             byte[] body;
             try (InputStream in = ex.getRequestBody()) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] buf = new byte[65536];
-                long total = 0;
-                int n;
-                while ((n = in.read(buf)) > 0) {
-                    total += n;
-                    if (total > maxBody) {
-                        text(ex, 413, "request too large\n");
-                        return;
-                    }
-                    out.write(buf, 0, n);
+                // one byte more than allowed: tells a body too large
+                body = in.readNBytes((int) Math.min(maxBody + 1, Integer.MAX_VALUE - 8));
+                if (body.length > maxBody) {
+                    text(ex, 413, "request too large\n");
+                    return;
                 }
-                body = out.toByteArray();
             }
             String type = ex.getRequestHeaders().getFirst("Content-Type");
             Input input;

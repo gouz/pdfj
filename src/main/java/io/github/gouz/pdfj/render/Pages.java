@@ -19,7 +19,6 @@ import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDBorderStyleDictionary;
 import org.apache.pdfbox.pdfwriter.compress.CompressParameters;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -30,6 +29,10 @@ import java.util.Map;
 
 /** The PDF: every page of every section, with repeated table headers / footers, margin boxes, links, metadata. */
 public final class Pages {
+    /** the buffer a render thread saves its documents into, kept between documents unless it grew past {@code KEEP} */
+    private static final ThreadLocal<ByteArrayOutputStream> OUT = ThreadLocal.withInitial(() -> new ByteArrayOutputStream(64 * 1024));
+    private static final int KEEP = 1024 * 1024;
+
     private Pages() {}
 
     /** a section root laid out at the width of its pages: page size and margins of each kind of page */
@@ -134,7 +137,7 @@ public final class Pages {
                     }
                 }
                 page.setResources(s.resources);
-                page.setContents(new PDStream(doc, new ByteArrayInputStream(s.bytes()), COSName.FLATE_DECODE));
+                page.setContents(new PDStream(s.contents(doc)));
                 for (Link l : links) {
                     PDAnnotationLink a = new PDAnnotationLink();
                     a.setRectangle(new PDRectangle((float) l.x, (float) (ph - l.y - Math.max(l.h, 0.1)), (float) Math.max(l.w, 0.1), (float) Math.max(l.h, 0.1)));
@@ -148,10 +151,13 @@ public final class Pages {
                 }
             }
             shared.finish();
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream out = OUT.get();
+            out.reset();
             // objects written as they are (no object streams): faster, and what krilla writes
             doc.save(out, CompressParameters.NO_COMPRESSION);
-            return out.toByteArray();
+            byte[] pdf = out.toByteArray();
+            if (pdf.length > KEEP) OUT.remove();
+            return pdf;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

@@ -87,7 +87,10 @@ public final class Images {
     }
 
     public static boolean isSvg(byte[] data) {
-        String head = new String(data, 0, Math.min(data.length, 512), StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
-        return head.contains("<svg");
+        // "<svg" in the first 512 bytes, any case
+        for (int i = 0, n = Math.min(data.length, 512) - 3; i < n; i++) {
+            if (data[i] == '<' && (data[i + 1] | 0x20) == 's' && (data[i + 2] | 0x20) == 'v' && (data[i + 3] | 0x20) == 'g') return true;
+        }
+        return false;
     }
 }
