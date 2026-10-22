@@ -14,7 +14,7 @@ Generates PDFs from HTML/CSS, **without a browser**: a Java port of [`pdfrs`](ht
 
 ```bash
 docker build -t pdfj . && docker run -p 3000:3000 pdfj
-# or with Java 21 and Maven
+# or with Java 25 and Maven
 mvn package -DskipTests && FONTS_DIR=/usr/share/fonts java -jar target/pdfj.jar
 ```
 
@@ -304,24 +304,24 @@ Differences:
 
 ## Performance
 
-Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (12 CPUs, k6 included), pdfj and pdfrs 0.5.1 in their images, 15 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
+Measured with [k6](https://k6.io), same scenario as pdfrs (`bench/k6.js`: POST the three documents `example`, `flex`, `images` of `demo/` in turn, PDF response). **Everything runs in Docker on the same machine** (12 CPUs, k6 included), pdfj (Java 25) and pdfrs 0.5.1 in their images, 15 s per stage after a 10 s warm-up; memory is the server container's peak (`docker stats`).
 
-![Throughput by number of concurrent users: pdfj climbs to ~9,000 PDF/s on all cores and ~2,350 on one core, pdfrs to ~6,600 and ~1,200](bench/chart.svg)
+![Throughput by number of concurrent users: pdfj climbs to ~8,400 PDF/s on all cores and ~2,200 on one core, pdfrs to ~6,800 and ~1,200](bench/chart.svg)
 
-![Peak memory: ~150 MB for pdfrs on 12 cores, ~450 MB for pdfj with a 256 MB heap, ~700 MB with its heap not bounded (the image's default)](bench/memory.svg)
+![Peak memory: ~90 MB for pdfrs on 12 cores, ~550 MB for pdfj with a 256 MB heap, ~650 MB with its heap not bounded (the image's default)](bench/memory.svg)
 
 ![p95 latency: lower for pdfj than for pdfrs, on all cores and on one core](bench/latency.svg)
 
 | Server | Max throughput | p95 at 10 VUs | p95 at 200 VUs | Memory at 200 VUs |
 |---|---|---|---|---|
-| pdfj, 12 threads (heap not bounded: the image's default) | 8,984 PDF/s | 3 ms | 42 ms | 692 MB |
-| pdfj, 12 threads, `-Xmx256m` | 9,043 PDF/s | 3 ms | 33 ms | 458 MB |
-| pdfrs, 12 threads | 6,642 PDF/s | 4 ms | 39 ms | 148 MB |
-| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 2,361 PDF/s | 6 ms | 119 ms | 439 MB |
-| pdfrs, 1 core | 1,224 PDF/s | 13 ms | 247 ms | 33 MB |
+| pdfj, 12 threads (heap not bounded: the image's default) | 8,372 PDF/s | 3 ms | 42 ms | 643 MB |
+| pdfj, 12 threads, `-Xmx256m` | 8,399 PDF/s | 3 ms | 35 ms | 553 MB |
+| pdfrs, 12 threads | 6,825 PDF/s | 4 ms | 37 ms | 88 MB |
+| pdfj, 1 core (`--cpus 1`, `WORKERS=1`) | 2,201 PDF/s | 8 ms | 132 ms | 358 MB |
+| pdfrs, 1 core | 1,193 PDF/s | 14 ms | 245 ms | 32 MB |
 
-- **pdfj renders more PDFs than pdfrs** on this scenario: ~35 % more on all cores (8,984 against 6,642 PDF/s), ~2× on one core (2,361 against 1,224 PDF/s), at a lower p95. The three documents are rendered again and again, so the subset fonts come from the cache (see below).
-- The JVM takes more memory than the Rust binary. The heap live after a collection is only ~35 MB: the rest is room G1 takes to collect less often. The image does not bound the heap, and lets G1 spend more time collecting rather than grow it (`-XX:GCTimeRatio=2`, 12 by default): ~700 MB under this load instead of ~1.2 GB, for the same throughput. A 256 MB heap (`JAVA_TOOL_OPTIONS=-Xmx256m`) takes ~450 MB, as fast here.
+- **pdfj renders more PDFs than pdfrs** on this scenario: ~25 % more on all cores (8,372 against 6,825 PDF/s), ~1.8× on one core (2,201 against 1,193 PDF/s), at about the same p95 on all cores and about half on one. The three documents are rendered again and again, so the subset fonts come from the cache (see below).
+- The JVM takes more memory than the Rust binary. The heap live after a collection is only ~35 MB: the rest is room G1 takes to collect less often. The image does not bound the heap, and lets G1 spend more time collecting rather than grow it (`-XX:GCTimeRatio=2`, 12 by default): ~650 MB under this load instead of ~1.2 GB, for the same throughput. A 256 MB heap (`JAVA_TOOL_OPTIONS=-Xmx256m`) takes ~550 MB, as fast here.
 - Without HTTP, one thread renders `example` in ~0.5 ms, `flex` in ~0.5 ms, `images` in ~1 ms (`Bench`).
 - What made it fast: fonts are parsed once per render thread and subset per document (not parsed again by PDFBox for every document), a subset font already made for the same glyphs is reused (compressed, up to 16 MB of them), content streams are compressed straight from the canvas's buffer, PNG data is embedded as it is (or compressed once and kept), PDF objects are written without object streams, and measurements of the layout engine are cached per box.
 
@@ -338,13 +338,13 @@ No need for Java locally: everything runs in Docker.
 
 ```bash
 # dev container, Maven cache in a volume
-docker run -d --name pdfj-dev -v "$PWD":/src -v pdfj-m2:/root/.m2 -w /src maven:3.9-eclipse-temurin-21 sleep infinity
+docker run -d --name pdfj-dev -v "$PWD":/src -v pdfj-m2:/root/.m2 -w /src maven:3.9-eclipse-temurin-25 sleep infinity
 docker exec pdfj-dev sh -c 'apt-get update -q && apt-get install -yq fonts-liberation fonts-dejavu-core'
 docker exec pdfj-dev mvn test
 docker exec pdfj-dev sh -c 'mvn -q package -DskipTests && java -jar target/pdfj.jar demo/report.html report.pdf'
 ```
 
-With Java 21 and Maven installed, `mvn test` and `java -jar target/pdfj.jar` work the same way, with `FONTS_DIR` pointing to a font directory. `java -cp target/pdfj.jar:target/test-classes io.github.gouz.pdfj.Bench` times the benchmark documents without HTTP (µs per document).
+With Java 25 and Maven installed, `mvn test` and `java -jar target/pdfj.jar` work the same way, with `FONTS_DIR` pointing to a font directory. `java -cp target/pdfj.jar:target/test-classes io.github.gouz.pdfj.Bench` times the benchmark documents without HTTP (µs per document).
 
 | Package | |
 |---|---|
